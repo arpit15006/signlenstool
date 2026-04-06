@@ -1,3 +1,4 @@
+// SignalLens Engine Server
 import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -27,6 +28,11 @@ app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
-app.listen(port, () => {
-  console.log(`🚀 SignalLens Engine running on port ${port}`);
-});
+// Start server only when running locally, not in Vercel serverless environment
+if (process.env.NODE_ENV !== "production") {
+  app.listen(port, () => {
+    console.log(`🚀 SignalLens Engine running on port ${port}`);
+  });
+}
+
+export default app;

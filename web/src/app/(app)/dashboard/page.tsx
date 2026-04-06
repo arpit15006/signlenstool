@@ -1,26 +1,26 @@
 "use client";
 import { useEffect, useState } from "react";
-import { fetchStats } from "@/lib/api";
+import { fetchStats, fetchTrend, fetchActivity } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, AlertCircle, Clock, ServerCrash } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-
-const data = [
-  { time: "10:00", errors: 4 },
-  { time: "10:30", errors: 2 },
-  { time: "11:00", errors: 6 },
-  { time: "11:30", errors: 1 },
-  { time: "12:00", errors: 0 },
-  { time: "12:30", errors: 7 },
-];
+import { formatDistanceToNow } from "date-fns";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({ totalErrors: 0, avgLatency: 0, totalLogs: 0, totalTraces: 0 });
+  const [trendData, setTrendData] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats().then(s => {
+    Promise.all([
+      fetchStats(),
+      fetchTrend(),
+      fetchActivity()
+    ]).then(([s, t, a]) => {
       setStats(s);
+      setTrendData(t);
+      setActivities(a);
       setLoading(false);
     }).catch(e => {
       console.error(e);
@@ -88,14 +88,20 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
-                  <XAxis dataKey="time" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '6px' }} />
-                  <Line type="monotone" dataKey="errors" stroke="#f43f5e" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              {trendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData}>
+                    <XAxis dataKey="time" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '6px' }} />
+                    <Line type="monotone" dataKey="errors" stroke="#f43f5e" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-zinc-500 text-sm italic">
+                  No error trends detected in the last 6 hours.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -106,30 +112,31 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-               <div className="flex items-start gap-4">
-                 <div className="w-2 h-2 mt-2 rounded-full bg-rose-500"></div>
-                 <div>
-                   <p className="text-sm font-medium text-zinc-200">Error in user-service</p>
-                   <p className="text-xs text-zinc-500">NullReferenceException</p>
+               {activities.length > 0 ? activities.map((item: any, i) => (
+                 <div key={i} className="flex items-start gap-4 animate-in fade-in slide-in-from-right-2 duration-300" style={{ animationDelay: `${i * 50}ms` }}>
+                   <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
+                     item.type === 'error' ? 'bg-rose-500' : 
+                     item.type === 'log' ? 'bg-emerald-500' : 'bg-amber-500'
+                   }`}></div>
+                   <div className="min-w-0 flex-1">
+                     <p className="text-sm font-medium text-zinc-200 truncate">
+                       {item.service}: {item.type === 'trace' ? 'Slow query detected' : item.message}
+                     </p>
+                     <p className="text-xs text-zinc-500">
+                       {item.type === 'error' ? 'Critical Exception' : 
+                        item.type === 'log' ? `Logs • ${item.level}` : 
+                        `Traces • ${item.duration}ms latency`}
+                     </p>
+                   </div>
+                   <div className="ml-auto text-xs text-zinc-500 whitespace-nowrap">
+                     {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                   </div>
                  </div>
-                 <div className="ml-auto text-xs text-zinc-500">12s ago</div>
-               </div>
-               <div className="flex items-start gap-4">
-                 <div className="w-2 h-2 mt-2 rounded-full bg-emerald-500"></div>
-                 <div>
-                   <p className="text-sm font-medium text-zinc-200">Payment Processed</p>
-                   <p className="text-xs text-zinc-500">Log level: info</p>
+               )) : (
+                 <div className="py-8 text-center text-zinc-500 text-sm italic">
+                   No recent activity to report.
                  </div>
-                 <div className="ml-auto text-xs text-zinc-500">1m ago</div>
-               </div>
-               <div className="flex items-start gap-4">
-                 <div className="w-2 h-2 mt-2 rounded-full bg-amber-500"></div>
-                 <div>
-                   <p className="text-sm font-medium text-zinc-200">Slow query detected</p>
-                   <p className="text-xs text-zinc-500">Trace: latency 430ms</p>
-                 </div>
-                 <div className="ml-auto text-xs text-zinc-500">5m ago</div>
-               </div>
+               )}
             </div>
           </CardContent>
         </Card>

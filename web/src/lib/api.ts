@@ -1,4 +1,4 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '/api' : 'http://localhost:4000/api');
 
 export async function fetchStats() {
   const res = await fetch(`${API_URL}/metrics/overview`, { cache: 'no-store' });
@@ -21,6 +21,18 @@ export async function fetchLogs() {
 export async function fetchTraces() {
   const res = await fetch(`${API_URL}/traces`, { cache: 'no-store' });
   if (!res.ok) throw new Error("Failed to fetch traces");
+  return res.json();
+}
+
+export async function fetchTrend() {
+  const res = await fetch(`${API_URL}/metrics/trend`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch trend");
+  return res.json();
+}
+
+export async function fetchActivity() {
+  const res = await fetch(`${API_URL}/metrics/activity`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch activity");
   return res.json();
 }
 
